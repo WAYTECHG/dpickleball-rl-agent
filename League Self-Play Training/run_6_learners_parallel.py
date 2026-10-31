@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -70,7 +71,8 @@ def main() -> int:
     ap.add_argument("--low-res", action="store_true", help="Try Unity low-res args. This may be ignored by this ML-Agents/Unity build.")
     ap.add_argument("--monitor", action="store_true", help="Print summarized progress from each learner log while running.")
     ap.add_argument("--monitor-interval", type=int, default=60)
-    ap.add_argument("--build-path", default=r"C:\Users\User\dpickleball-ml-agents\dPickleball BuildFiles\Training\Windows\dp.exe")
+    ap.add_argument("--build-path", default=os.environ.get("DPICKLEBALL_TRAINING_EXE", ""),
+                    help="Path to the Unity Training build dp.exe (or set DPICKLEBALL_TRAINING_EXE).")
     ap.add_argument("--trainer-pool", default="league_pool_filtered",
                     help="Opponent pool folder. Default is the balanced 40-model runtime pool; use league_pool_all_submitted for the full 211-model member archive.")
     ap.add_argument("--time-scale", type=float, default=1.0,

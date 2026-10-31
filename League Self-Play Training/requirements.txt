@@ -1,7 +1,8 @@
+# Install the dPickleBall fork of ML-Agents first (see the main README, step 2).
+# Do NOT install mlagents-envs from PyPI: it lacks the dPickleBall side channel.
 torch
-numpy
-opencv-python
+numpy==1.23.5
+opencv-python==4.7.0.72
 stable-baselines3
-mlagents-envs
 gym
 gymnasium

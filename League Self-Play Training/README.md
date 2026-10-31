@@ -12,9 +12,9 @@ The purpose of this stage is to continue training the policy in the real Unity d
 | Folder | Meaning |
 |---|---|
 | `league_pool_filtered/` | Default balanced runtime opponent pool used by the training scripts. It now contains **40 models**: weak, medium, member-contributed, and strong opponents. |
-| `league_pool_all_submitted/` | Full submitted model archive with **211 models**, including Zhiling, Haoren, Huayang, Jason, Wilbert, and WW/V-series legacy models. This is kept for reproducibility and report evidence. |
+| `league_pool_all_submitted/` | Full submitted model archive with **211 models**, including Zhiling, Haoren, Huayang, Jason, Wilbert, and WW/V-series legacy models. **Not included in this repository** (too large); its contents are listed in `manifests/league_pool_all_submitted_manifest.csv`. |
 
-The default training scripts use `league_pool_filtered/` because it is more balanced and less repetitive than the full archive. The full archive is still included so the report can state that the league opponent pool was prepared from all member-contributed models.
+The default training scripts use `league_pool_filtered/` because it is more balanced and less repetitive than the full archive.
 
 ## Main commands
 
@@ -22,7 +22,7 @@ Run from this folder:
 
 ```powershell
 conda activate dpickleball
-cd "C:\Users\User\dpickleball-ml-agents\League Self-Play Training Core Full Members"
+cd "League Self-Play Training"
 ```
 
 ### Phase 1: fast 800k league training
@@ -61,7 +61,7 @@ trainer_pool = league_pool_filtered
 
 ## Optional: train with the full submitted pool
 
-The balanced 40-model runtime pool is recommended. If you need to train with the full archive pool for experimentation, run:
+The balanced 40-model runtime pool is recommended. If you have a copy of the full archive (not included in this repository), place it in `league_pool_all_submitted/` and run:
 
 ```powershell
 python run_fast_training.py --trainer-pool league_pool_all_submitted
@@ -95,7 +95,7 @@ This gives the learner a curriculum-like range of opponents instead of only very
 | `export_sb3_to_torchscript.py` | Exports SB3 PPO checkpoints to TorchScript `.pt` policies. |
 | `learner_starts/` | Initial PPO checkpoints for the 6 learners. |
 | `league_pool_filtered/` | Balanced 40-model runtime opponent pool. |
-| `league_pool_all_submitted/` | Full 211-model submitted archive. |
+| `league_pool_all_submitted/` | Full 211-model submitted archive (not included; see its manifest). |
 | `manifests/` | CSV/JSON summaries of both pools. |
 
 ## Report wording
@@ -107,5 +107,5 @@ You can describe this stage like this:
 ## Notes
 
 - The default pool is `league_pool_filtered/`.
-- The full contributed pool is preserved in `league_pool_all_submitted/`.
-- Use `outputs/` for training results and exported `.pt` files.
+- The full contributed pool (`league_pool_all_submitted/`) is documented in `manifests/` but not included in this repository.
+- Training results and exported `.pt` files are written to `outputs/`, which is git-ignored.

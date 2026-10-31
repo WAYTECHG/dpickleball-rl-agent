@@ -12,7 +12,7 @@ Training and visualisation are separated. Run training first. Visualisation is o
 
 ```powershell
 conda activate dpickleball
-cd "C:\Users\User\dpickleball-ml-agents\Foundation training"
+cd "Foundation training"
 python run_train.py
 ```
 
@@ -32,7 +32,7 @@ python run_train.py --continue-training
 
 ```powershell
 conda activate dpickleball
-cd "C:\Users\User\dpickleball-ml-agents\Foundation training"
+cd "Foundation training"
 python run_visual_check.py --mode env --level 1 --steps 2000
 ```
 

@@ -12,6 +12,8 @@ def main() -> int:
     parser.add_argument("--steps", type=int, default=800000)
     parser.add_argument("--trainer-pool", default="league_pool_filtered",
                         help="Opponent pool folder. Default is the balanced 40-model runtime pool. Use league_pool_all_submitted only for the full 211-model member archive.")
+    parser.add_argument("--build-path", default=None,
+                        help="Path to the Unity Training build dp.exe (or set DPICKLEBALL_TRAINING_EXE).")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent
@@ -34,6 +36,8 @@ def main() -> int:
         "--save-every-chunks", "5",
         "--add-selfplay-to-pool",
     ]
+    if args.build_path:
+        cmd += ["--build-path", args.build_path]
     return subprocess.call(cmd, cwd=str(root))
 
 

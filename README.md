@@ -110,6 +110,15 @@ Candidate agents were compared through internal round-robin tournaments, followe
 
 **RealFT** achieved the strongest overall internal tournament result and was selected as the final competition agent.
 
+RealFT uses a different checkpoint on each side, picked by real-game matches against a reference opponent:
+
+| Side | Checkpoint | Origin |
+|---|---|---|
+| Left (`TeamX`, `model_left.pt`) | `realft_01600004` | PPO fine-tuned in the real Unity game, then 1.6M steps against a PFSP opponent pool |
+| Right (`TeamY`, `model_right.pt`) | `realft_00300000` mirrored | 300k-step real-game fine-tune, mirrored through the court's centre line |
+
+Both are small TorchScript policies (13→128→128→64 tanh, separate vertical/horizontal heads, rotation fixed at 0) that act on 16 features extracted from the 168×84 camera frame with OpenCV.
+
 The final agent was then evaluated against agents developed by other participating groups.
 
 **[Watch the competition on YouTube](https://www.youtube.com/live/CitFn9FK12s)**
@@ -141,10 +150,12 @@ The training and final selection process was conducted collaboratively as part o
 ## Repository Structure
 
 ```text
-dpickleball-reinforcement-learning-agent/
+dpickleball-rl-agent/
 │
 ├── Competition Script/
-│   └── Competition execution and evaluation
+│   ├── Competition.py        Runs a match in the Unity competition build
+│   ├── teamX.py / teamY.py   Left / right RealFT players (OpenCV feature extraction + policy)
+│   └── model_left.pt / model_right.pt   RealFT TorchScript checkpoints
 │
 ├── Foundation training/
 │   └── Curriculum-based wall training
@@ -157,61 +168,112 @@ dpickleball-reinforcement-learning-agent/
 
 ## Installation and Execution
 
-### Prerequisites
+Tested on Windows 10/11 with Python 3.10.12. A GPU is not required to run matches.
 
-- Python 3.10.12
-- Conda or Miniconda
-- Compatible Unity ML-Agents dependencies
-- Windows dPickleBall competition build
-- Required trained agent checkpoints
+### 1. Create the Python environment
 
-### 1. Set Up the Environment
+Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) (or Anaconda) and [Git](https://git-scm.com/), then open **Anaconda Prompt** or PowerShell:
 
-Create and activate a Python environment:
-
-```bash
-conda create -n dpickleball python=3.10.12 pip
+```powershell
+conda create -n dpickleball pip python=3.10.12
 conda activate dpickleball
 ```
 
-Install the ML-Agents implementation and other dependencies following the [official dPickleBall environment instructions](https://github.com/dPickleball/dPickleBallEnv).
+### 2. Install the dPickleBall version of Unity ML-Agents
 
-### 2. Clone the Repository
-
-```bash
-git clone https://github.com/WAYTECHG/dpickleball-reinforcement-learning-agent.git
-cd dpickleball-reinforcement-learning-agent
-```
-
-### 3. Prepare the Unity Game
-
-Obtain the compatible Windows competition build from the original dPickleBall project.
-
-Locate the game executable:
-
-```text
-Competition/
-└── Windows/
-    └── dp.exe
-```
-
-Navigate to the directory containing `competition_like_fight.py` and ensure its required model checkpoints are available.
-
-### 4. Run the Competition
-
-Execute the following command, replacing the placeholder with the actual path to the Unity executable:
+The game talks to Python through dPickleBall's own fork of ML-Agents (it adds the side channel used to start the match). Install the fork, **not** `mlagents-envs` from PyPI:
 
 ```powershell
-python competition_like_fight.py --env-path "C:\path\to\Competition\Windows\dp.exe" --graphics
+git clone https://github.com/dPickleball/dpickleball-ml-agents.git
+cd dpickleball-ml-agents
+pip install -e ./ml-agents-envs
+pip install -e ./ml-agents
+cd ..
 ```
+
+Keep this `dpickleball-ml-agents` folder: the `-e` install loads ML-Agents from it.
+
+### 3. Install the other packages
+
+```powershell
+pip install numpy==1.23.5 opencv-python==4.7.0.72 matplotlib pynput==1.8.1
+pip install torch==2.5.1
+```
+
+For the training code you also need:
+
+```powershell
+pip install stable-baselines3 gymnasium tensorboard
+```
+
+### 4. Download the Unity game
+
+Download the dPickleBall build from the [official dPickleBall Google Drive](https://drive.google.com/drive/u/0/folders/1lFqj6lopoIO96C_IO8yGXGzRMY1S4fzi) (linked from the [dPickleBallEnv repository](https://github.com/dPickleball/dPickleBallEnv)) and extract it. You need the Windows builds:
+
+```text
+dPickleball BuildFiles/
+├── Competition/Windows/dp.exe   ← used to run matches
+└── Training/Windows/dp.exe      ← used by League Self-Play Training
+```
+
+### 5. Clone this repository
+
+```powershell
+git config --global core.longpaths true
+git clone https://github.com/WAYTECHG/dpickleball-rl-agent.git
+cd dpickleball-rl-agent
+```
+
+The first line lets Windows check out the long checkpoint file names in `League Self-Play Training/league_pool_filtered/`. Without it, the clone can fail with `Filename too long`.
+
+### 6. Run a match: RealFT vs RealFT
+
+```powershell
+conda activate dpickleball
+cd "Competition Script"
+python Competition.py --env-path "C:\path\to\dPickleball BuildFiles\Competition\Windows\dp.exe"
+```
+
+1. The game opens on its title screen. Optionally type the player names, then click **START**.
+2. Keep the game window in front while it plays. The game pauses when it loses focus.
+3. The score is printed in the terminal. Press `Ctrl+C` to stop.
 
 | Argument | Description |
 |---|---|
-| `competition_like_fight.py` | Competition simulation script |
-| `--env-path` | Location of the Unity executable |
-| `--graphics` | Enables graphical rendering |
+| `--env-path` | Path to the Competition build `dp.exe`. Setting the `DPICKLEBALL_EXE` environment variable also works. |
+| `--serve` | Serve code sent to the game (default `212`, as in the competition). |
+| `--wait` | Seconds to wait for START to be clicked (default `300`). |
 
-**Note:** This command launches the competition simulation using existing trained policies. It does not initiate a new training session. A compatible environment build, dependencies, and agent checkpoints are required.
+`teamX.py` (left) and `teamY.py` (right) load `model_left.pt` and `model_right.pt` from the same folder. To try another agent, replace those files with its TorchScript policies.
+
+### 7. (Optional) Train
+
+**Foundation training** runs in a lightweight Python wall simulator, so the Unity game is not needed:
+
+```powershell
+cd "Foundation training"
+python run_train.py
+```
+
+**League self-play training** runs 6 learners in parallel in the Unity Training build. Point it at your `Training/Windows/dp.exe`:
+
+```powershell
+cd "League Self-Play Training"
+python run_fast_training.py --build-path "C:\path\to\dPickleball BuildFiles\Training\Windows\dp.exe"
+python run_normal_finetune.py --build-path "C:\path\to\dPickleball BuildFiles\Training\Windows\dp.exe"
+```
+
+See the README in each folder for details and options.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `UnityTimeOutException: The Unity environment took too long to respond` | Click **START** on the game's title screen, and check that `--env-path` points to `Competition/Windows/dp.exe`. |
+| `ModuleNotFoundError: No module named 'mlagents_envs.envs.custom_side_channel'` | `mlagents-envs` from PyPI is installed instead of the dPickleBall fork. Run `pip uninstall mlagents-envs`, then repeat step 2. |
+| `ModuleNotFoundError: No module named 'PIL'` or `'typing_extensions'` | `pip install Pillow typing_extensions` |
+| `error: Filename too long` while cloning | Run `git config --global core.longpaths true` and clone again. |
+| The game freezes mid-match | The game window lost focus. Click on it to continue. |
 
 ## Acknowledgements
 

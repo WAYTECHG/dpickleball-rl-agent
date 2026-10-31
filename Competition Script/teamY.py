@@ -21,7 +21,7 @@ except Exception:
 class OpenCVStateExtractor:
     """Extract the 16 input features used by the TorchScript policy."""
 
-    def __init__(self, img_w: int = 168, img_h: int = 84, side: str = "right"):
+    def __init__(self, img_w: int = 168, img_h: int = 84, side: str = "left"):
         self.img_w = img_w
         self.img_h = img_h
         self.side = side
@@ -153,30 +153,6 @@ class OpenCVStateExtractor:
         ], dtype=np.float32)
 
 
-def mirror_features_right_to_left(features: np.ndarray) -> np.ndarray:
-    f = np.array(features, dtype=np.float32).copy()
-    f[0] = -f[0]
-    f[2] = -f[2]
-    f[4] = -f[4]
-    f[6] = -f[6]
-    f[8] = -f[8]
-    f[14] = -f[14]
-    return f
-
-
-def mirror_action_left_to_right(action: np.ndarray) -> np.ndarray:
-    a = np.asarray(action, dtype=np.int32).copy()
-    if a[1] == 1:
-        a[1] = 2
-    elif a[1] == 2:
-        a[1] = 1
-    if a[2] == 1:
-        a[2] = 2
-    elif a[2] == 2:
-        a[2] = 1
-    return a
-
-
 def _is_visual_array(x: Any) -> bool:
     try:
         arr = np.asarray(x)
@@ -216,14 +192,11 @@ def extract_visual_observation(observation: Any) -> np.ndarray:
 
 def _find_model_file() -> str:
     here = Path(__file__).resolve().parent
-    for name in ("teamY.pt", "model_right.pt", "model.pt", "best_2_policy.pt"):
+    for name in ("teamY.pt", "model_right.pt"):
         path = here / name
         if path.exists():
             return str(path)
-    checkpoint = here / "checkpoints" / "best_2_policy.pt"
-    if checkpoint.exists():
-        return str(checkpoint)
-    raise FileNotFoundError("Put teamY.pt, model_right.pt, model.pt, or best_2_policy.pt beside teamY.py.")
+    raise FileNotFoundError("Put teamY.pt or model_right.pt beside teamY.py.")
 
 
 class _PinnedWorker:
@@ -260,7 +233,7 @@ class _PinnedWorker:
 
 
 class TeamY:
-    """Right-side policy that mirrors right observations for a left-trained model."""
+    """Right-side competition policy (RealFT right model is right-native: it mirrors internally, so no mirroring here)."""
 
     def __init__(self):
         self.extractor = OpenCVStateExtractor(side="right")
@@ -268,7 +241,7 @@ class TeamY:
         self.model.eval()
         with torch.no_grad():
             dummy = torch.zeros(16, dtype=torch.float32)
-            dummy[14] = -1.0
+            dummy[14] = 1.0
             self.model(dummy)
         self._worker = _PinnedWorker(self._policy_impl)
 
@@ -276,16 +249,9 @@ class TeamY:
         return self._worker(observation, reward)
 
     def _policy_impl(self, observation, reward):
-        native_features = self.extractor.features_from_image(extract_visual_observation(observation))
-        model_features = mirror_features_right_to_left(native_features)
-
+        features = self.extractor.features_from_image(extract_visual_observation(observation))
         with torch.no_grad():
-            model_action = self.model(torch.as_tensor(model_features, dtype=torch.float32)).cpu().numpy()
-
-        model_action = np.clip(np.asarray(model_action[:3], dtype=np.int32), 0, 2)
-        action = mirror_action_left_to_right(model_action)
-
-        if native_features[12] < 0.5 or abs(float(native_features[9])) < 0.08:
-            action[0] = 0
+            action = self.model(torch.as_tensor(features, dtype=torch.float32)).cpu().numpy()
+        action = np.clip(np.asarray(action[:3], dtype=np.int32), 0, 2)
         action[2] = 0
-        return np.clip(action, 0, 2).astype(np.int32)
+        return action

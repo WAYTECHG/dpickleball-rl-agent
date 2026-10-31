@@ -126,8 +126,7 @@ def configure_torch_threads(n: int) -> None:
 
 
 def resolve_default_build_path() -> str:
-    candidate = Path(r'C:\Users\User\dpickleball-ml-agents\dPickleball BuildFiles\Training\Windows\dp.exe')
-    return str(candidate)
+    return os.environ.get('DPICKLEBALL_TRAINING_EXE', '')
 
 
 def create_model(args, env):
